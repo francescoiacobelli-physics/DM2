@@ -78,21 +78,24 @@ class InitialEmbedding(nn.Module):
 def loss_fn(model, data):
     """Calculate MSE loss between predicted and actual displacement."""
     pred_dx = model(data)
-    return torch.nn.functional.mse_loss(pred_dx, data.dx)
+    return torch.nn.functional.mse_loss(pred_dx.float(), data.dx.float())
 
-def train(loader, model, optimizer, device, rattle_particles, downselect_edges, PIN_MEMORY):
+def train(loader, model, optimizer, device, rattle_particles, downselect_edges, PIN_MEMORY, ACCUM):
     """Training loop for one epoch."""
     start_time = time.time()
     model.train()
     total_loss = 0.0
-    for data in loader:
-        optimizer.zero_grad(set_to_none=True)
+    optimizer.zero_grad(set_to_none=True)
+    for i, data in enumerate(loader):
         data = data.to(device, non_blocking=PIN_MEMORY)
         data = rattle_particles(data)
         data = downselect_edges(data)
-        loss = loss_fn(model, data)
+        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+            loss = loss_fn(model, data) / ACCUM
         loss.backward()
-        optimizer.step()
+        if (i + 1) % ACCUM == 0:
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
         total_loss += loss.item()
 
     epoch_time = time.time() - start_time
@@ -123,13 +126,15 @@ def main():
     gpu_id = 0              # adjustable based on your device.
     PIN_MEMORY  = True      # related to optimization for training, revert to False if you see any issues.
     NUM_WORKERS = 0         # related to optimization for training, revert to 1 if you see any issues.
-    BATCH_SIZE  = 16        # adjust so that each minibatch fits in the (GPU) memory.
+    BATCH_SIZE  = 4         # adjust so that each minibatch fits in the (GPU) memory.
+    ACCUM = 4               # adjust gradient accumulation to fit in GPU memory (recommend 4).
     LARGE_CUTOFF = 10       # recommend.
     CUTOFF      = 5         # recommend. May not the best value for every system and can affect model performace.
     LEARN_RATE  = 2e-4      # adjustable.
     NUM_UPDATES = 30_000    # need to see convergence in loss plot (more or less).
     train_ratio = 0.9       # adjustable.
     sigma_max_value = 0.75  # adjust added noise in noisying process (recommend 0.75).
+    
     path_save_loss_fig = './loss_figure.png'        # adjustable
     path_save_model = './model.pt'                  # adjustable
     # ====================
@@ -189,7 +194,7 @@ def main():
     
     for epoch in range(num_epochs):
         train_loss, epoch_time = train(train_loader, model, optimizer, device, 
-                                     rattle_particles, downselect_edges, PIN_MEMORY)
+                                     rattle_particles, downselect_edges, PIN_MEMORY, ACCUM)
         valid_loss = test(valid_loader, model, device, 
                          rattle_particles, downselect_edges, PIN_MEMORY)
         total_training_time += epoch_time

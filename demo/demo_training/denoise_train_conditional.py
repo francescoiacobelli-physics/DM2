@@ -128,7 +128,7 @@ def set_gpu(gpu_id):
 def main():
     # === Main configuration parameter ===
     NUM_SPECIES = 2         # important to check with your system or will casue error.
-    gpu_id = 1              # adjustable based on your device.
+    gpu_id = 0              # adjustable based on your device.
     PIN_MEMORY  = True      # related to optimization for training, revert to False if you see any issues.
     NUM_WORKERS = 0         # related to optimization for training, revert to 1 if you see any issues.
     BATCH_SIZE  = 16        # adjust so that each minibatch fits in the (GPU) memory.
