@@ -1,98 +1,30 @@
-#!/usr/bin/env python3
-"""Calcola statistiche per riga e crea il grafico della media con barre d'errore.
-
-Il file di input deve contenere una riga per ciascun valore x: la prima colonna
-è x e le colonne successive sono i valori da mediare. Sono ammesse righe vuote
-e commenti che iniziano con '#'.
-
-Esempio:
-    python plot_row_statistics.py train_eVST.dat gen_eVST.dat
-"""
-
-import argparse
-import io
-from pathlib import Path
-
-import matplotlib.pyplot as plt
 import numpy as np
-
+import fra_lib.funzioni as fra
+import sys
+print(sys.executable)
+print(fra.__file__)
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "files",
-        type=Path,
-        nargs=2,
-        metavar=("FILE1", "FILE2"),
-        help="due file di dati separati da spazi",
-    )
-    parser.add_argument(
-        "-o",
-        "--output",
-        type=Path,
-        help="file immagine in output (default: <file1>_<file2>_statistics.png)",
-    )
-    parser.add_argument(
-        "--uncertainty",
-        choices=("sem", "std"),
-        default="sem",
-        help="tipo di barre d'errore: errore standard (sem, default) "
-        "o deviazione standard campionaria (std)",
-    )
-    args = parser.parse_args()
+    cooling_rates = [0.1, 1, 10, 100]
+    train_gen_energies = np.array([[-22.203766, -22.247513, -22.169745, -22.371528, -22.159061, -22.396485],
+                                  [-22.096374, -22.259851, -22.116726, -22.123513, -22.260681, -22.106890],
+                                  [-22.012785, -21.963463, -22.108300, -22.079973, -21.943911, -22.116610],
+                                  [-22.023060, -21.861594, -22.028743, -21.922189, -21.962188, -21.962039]])
+    demo_gen_energies = np.array([[-22.310905, -22.271143, -22.300758, -22.264846, -22.291715, -22.305877],
+                                  [-22.295458, -22.287653, -22.276761, -22.294341, -22.282806, -22.293316],
+                                  [-22.277145, -22.288354, -22.287092, -22.283929, -22.249874, -22.296120],
+                                  [-22.287746, -22.271651, -22.288259, -22.296024, -22.280727, -22.256846]])
+    prova = np.array([-22.251234])
 
-    results = []
-    for path in args.files:
-        try:
-            # Accetta anche il segno meno Unicode (−) che può comparire nei file.
-            contents = path.read_text(encoding="utf-8").replace("\N{MINUS SIGN}", "-")
-            data = np.loadtxt(io.StringIO(contents), comments="#", ndmin=2)
-        except OSError as exc:
-            parser.error(f"impossibile leggere '{path}': {exc}")
-        except ValueError as exc:
-            parser.error(f"formato dati non valido in '{path}': {exc}")
-
-        if data.shape[1] < 2:
-            parser.error(f"'{path}' deve contenere almeno due colonne")
-        if data.shape[0] == 0:
-            parser.error(f"'{path}' non contiene righe di dati")
-        if data.shape[1] < 3:
-            parser.error(f"'{path}': servono almeno due valori per riga "
-                         "per calcolare l'incertezza")
-
-        x = data[:, 0]
-        samples = data[:, 1:]
-        means = np.mean(samples, axis=1)
-        stds = np.std(samples, axis=1, ddof=1)
-        uncertainties = (
-            stds / np.sqrt(samples.shape[1])
-            if args.uncertainty == "sem"
-            else stds
-        )
-        results.append((path, x, means, uncertainties))
-
-        print(f"{'file':<30} {'x':>12} {'media':>16} {'incertezza':>16}")
-    for path, x, means, uncertainties in results:
-        for x_value, mean, uncertainty in zip(x, means, uncertainties):
-            print(f"{path.name:<30} {x_value:12g} {mean:16g} {uncertainty:16g}")
-
-    first, second = args.files
-    output = args.output or first.with_name(
-        f"{first.stem}_{second.stem}_statistics.png"
-    )
-    for path, x, means, uncertainties in results:
-        plt.errorbar(
-            x, means, yerr=uncertainties, fmt="o-", capsize=4, label=path.name
-        )
-    plt.xlabel("Valore della prima colonna")
-    plt.ylabel("Media dei valori")
-    plt.title(f"Media e incertezza ({args.uncertainty.upper()})")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.savefig(output, dpi=300)
-    print(f"Grafico salvato in: {output}")
-
-
+    mean_train = train_gen_energies.mean(axis=1)
+    mean_demo = demo_gen_energies.mean(axis=1)
+    sdt_train = train_gen_energies.std(axis=1)
+    sdt_demo = demo_gen_energies.std(axis=1)
+    fra.plot(cooling_rates, mean_train, legenda = 'train', xlogscale = True, uy = sdt_train, incertezze = True,color = 'blue', shape = 'o-')
+    fra.plot(cooling_rates, mean_demo, title = '', legenda = 'demo_gen', xlogscale = True, uy = sdt_demo, incertezze = True,
+            xlabel = 'Cooling Rate',
+            ylabel = 'Mean Energy', color = 'red', shape = 'o-', show=True)
 if __name__ == "__main__":
     main()
+
+

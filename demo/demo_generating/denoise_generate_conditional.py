@@ -160,7 +160,7 @@ def denoise_snapshot_gpu(atoms, model, cooling_rate, scale=1.0, steps=8):
     
     return pos_traj
 
-def main(cooling_rate, file_num):
+def main(cooling_rate, file_num = None):
     start_time = time.time() 
 
    # === Change here ===#
@@ -182,14 +182,18 @@ def main(cooling_rate, file_num):
     target_cooling_rate = cooling_rate
     model = model.to('cuda')
 
-    if file_num < 10:
-        TEST_FNAME = f'./inital_data/random_sio2_000{file_num}.data'
+    if file_num == None:
+        TEST_FNAME = './inital_data/random_sio2_size_3000_demo.dat'
+        OUTPUT_FNAME = f'./demo_model_gen_data/prova{cooling_rate}k_0001.extxyz'
     else:
-        TEST_FNAME = f'./inital_data/random_sio2_00{file_num}.data'
-    if file_num < 10:
-        OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_000{file_num}.extxyz'
-    else:
-        OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_00{file_num}.extxyz'
+        if file_num < 10:
+            TEST_FNAME = f'./inital_data/random_sio2_000{file_num}.data'
+        else:
+            TEST_FNAME = f'./inital_data/random_sio2_00{file_num}.data'
+        if file_num < 10:
+            OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_000{file_num}.extxyz'
+        else:
+            OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_00{file_num}.extxyz'
     # ===================#
 
     noisy_atoms = ase.io.read(TEST_FNAME, format='lammps-data')
@@ -225,13 +229,15 @@ def main(cooling_rate, file_num):
     print(f"\n✅ Total runtime: {elapsed_minutes:.2f} minutes ({elapsed_minutes/60:.2f} hours)")
 
 
+# if __name__ == "__main__":
+#    cooling_rates= [0.1, 1, 10, 100]
+#    count = 0
+#    for cooling_rate in cooling_rates:
+#        print(f"\n======== Starting denoising with cooling rate: {cooling_rate} K/ps ========")
+#        for n in range(6):
+#            print(f"\n==== Sample {n+count} for cooling rate {cooling_rate} K/ps ====")
+#            main(cooling_rate, n+count)
+#        count += 6
+
 if __name__ == "__main__":
-    cooling_rates= [0.1, 1, 10, 100]
-    count = 0
-    for cooling_rate in cooling_rates:
-        print(f"\n======== Starting denoising with cooling rate: {cooling_rate} K/ps ========")
-        for n in range(6):
-            print(f"\n==== Sample {n+count} for cooling rate {cooling_rate} K/ps ====")
-            main(cooling_rate, n+count)
-        count += 6
-    
+    main(cooling_rate=100)
