@@ -1,5 +1,5 @@
 import torch
-from torch import nn
+from torch import device, nn
 import numpy as np
 import matplotlib.pyplot as plt
 import ase.io
@@ -160,18 +160,36 @@ def denoise_snapshot_gpu(atoms, model, cooling_rate, scale=1.0, steps=8):
     
     return pos_traj
 
-def main():
+def main(cooling_rate, file_num):
     start_time = time.time() 
 
-    # === Change here ===#
+   # === Change here ===#
     gpu_id = 0
     set_gpu(gpu_id)
-    model = torch.load('../model/gen-a-sio2-cond-v1.pt')
+    device = torch.device('cpu')   # carico su CPU, poi sposto su GPU
+
+    _orig_jit_load = torch.jit.load
+    def _jit_load_patched(f, map_location=None, *args, **kwargs):
+        return _orig_jit_load(f, map_location=device, *args, **kwargs)
+    torch.jit.load = _jit_load_patched
+    try:
+        model = torch.load('../model/gen-a-sio2-cond-v1.pt',
+                       map_location=device, weights_only=False)
+    finally:
+        torch.jit.load = _orig_jit_load   # ripristina l'originale
+
     CUTOFF = 5
-    target_cooling_rate = 0.1  # Ideal range: 10^-2 to 10^3. Max range: 10^-4 to 10^4 
+    target_cooling_rate = cooling_rate
     model = model.to('cuda')
-    TEST_FNAME = './inital_data/random_sio2_size_300_demo.dat'
-    OUTPUT_FNAME = './gen_data/denoised_random_sio2_300_demo.extxyz'
+
+    if file_num < 10:
+        TEST_FNAME = f'./inital_data/random_sio2_000{file_num}.data'
+    else:
+        TEST_FNAME = f'./inital_data/random_sio2_00{file_num}.data'
+    if file_num < 10:
+        OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_000{file_num}.extxyz'
+    else:
+        OUTPUT_FNAME = f'./demo_model_gen_data/denoised_random_sio2_{cooling_rate}k_00{file_num}.extxyz'
     # ===================#
 
     noisy_atoms = ase.io.read(TEST_FNAME, format='lammps-data')
@@ -200,7 +218,7 @@ def main():
     ]
     for atoms in denoising_traj:
         atoms.wrap()
-    ase.io.write(OUTPUT_FNAME, denoising_traj)
+    ase.io.write(OUTPUT_FNAME, denoising_traj[-1])
 
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
@@ -208,4 +226,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    cooling_rates= [0.1, 1, 10, 100]
+    count = 0
+    for cooling_rate in cooling_rates:
+        print(f"\n======== Starting denoising with cooling rate: {cooling_rate} K/ps ========")
+        for n in range(6):
+            print(f"\n==== Sample {n+count} for cooling rate {cooling_rate} K/ps ====")
+            main(cooling_rate, n+count)
+        count += 6
+    

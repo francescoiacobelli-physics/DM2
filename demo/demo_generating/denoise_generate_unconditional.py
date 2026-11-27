@@ -165,11 +165,11 @@ def main():
     # === Change here ===#
     gpu_id = 0
     set_gpu(gpu_id)
-    model = torch.load('../model/gen-a-sio2-uncond-v1.pt')
+    model = torch.load('../model/my_gen-a-sio2-uncond-v1.pt', weights_only=False)
     CUTOFF = 5
     model = model.to('cuda')
-    TEST_FNAME = './inital_data/random_sio2_size_300_demo.dat'
-    OUTPUT_FNAME = './gen_data/denoised_random_sio2_300_demo.extxyz'
+    TEST_FNAME = './inital_data/random_sio2_size_3000_demo.dat'
+    OUTPUT_FNAME = './gen_data/denoised_random_sio2_3000_demo.extxyz'
     # ===================#
 
     noisy_atoms = ase.io.read(TEST_FNAME, format='lammps-data')
